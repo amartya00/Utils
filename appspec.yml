@@ -1,0 +1,17 @@
+version: 0.0
+os: linux
+files:
+  - source: bin/
+    destination: /opt/MyApps/ToolSuite/bin/
+
+  - source: libs/   
+    destination: /opt/MyApps/ToolSuite/libs/
+
+  - source: templates/
+    destination: /opt/MyApps/ToolSuite/templates/
+
+hooks:
+  AfterInstall:
+    - location: scripts/MakeExecutable.sh
+      timeout: 300
+      runas: root
