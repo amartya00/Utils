@@ -10,9 +10,6 @@ files:
   - source: templates/
     destination: /opt/MyApps/Utils/templates/
 
-  - source: README.md
-    destination: /opt/MyApps/Utils/
-
 hooks:
   AfterInstall:
     - location: scripts/MakeExecutable.sh
