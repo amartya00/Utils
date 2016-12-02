@@ -2,13 +2,13 @@ version: 0.0
 os: linux
 files:
   - source: bin/
-    destination: /opt/MyApps/ToolSuite/bin/
+    destination: /opt/MyApps/Utils/bin/
 
   - source: libs/   
-    destination: /opt/MyApps/ToolSuite/libs/
+    destination: /opt/MyApps/Utils/libs/
 
   - source: templates/
-    destination: /opt/MyApps/ToolSuite/templates/
+    destination: /opt/MyApps/Utils/templates/
 
 hooks:
   AfterInstall:
