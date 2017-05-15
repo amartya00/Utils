@@ -5,9 +5,9 @@ This utility consolidates some utility stuff
 Usage:
 Utils command [options]
 The utility commands are:
-    [0] EC2Utils
     [1] Time
     [2] Tasks
+    [3] Todo
 """
 
 
@@ -19,9 +19,9 @@ import json
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
 sys.dont_write_bytecode = True
 
-from libs.codedeployUtils.EC2Utils import EC2Utils, EC2UtilsException
 from libs.utils.Time import Time, TimeException
 from libs.utils.Tasks import Tasks, TasksException
+from libs.utils.ToDo import Todo, TodoException
 
 def main():
     args = sys.argv
@@ -32,12 +32,13 @@ def main():
     command = args[1]
     args = args[2:]
 
-    if command == "EC2Utils":
-	return EC2Utils.getOpts(args)
-    elif command == "Time":
+    if command == "Time":
 	return Time.getOpts(args)
     elif command == "Tasks":
 	return Tasks.getOpts(args)
+    elif command == "Todo":
+	return Todo.getOpts(args)
+	
     else:
 	print("ERROR: Wrong command: " + command)
 	print(__doc__)

@@ -16,6 +16,9 @@ import sys
 import datetime
 import time
 
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../../")
+from libs.utils.MiscUtils import MiscUtils
+
 class TasksException(BaseException):
     r"""
     Tasks Exception is used for all exceptions related to tasks
@@ -39,10 +42,11 @@ class Tasks:
         self.taskRoot = Tasks.tasksRoot + "/" + taskName
         self.configFile = self.taskRoot + "/.config"
         self.archiveFile = taskName + ".tar.gz"
+	self.taskName = taskName
         if os.path.isfile(self.configFile):
             self.config = json.loads(open(self.configFile, "r").read())
         else:
-            self.config = {"NAME" : taskName, "STATUS": "Unknown"}
+            self.config = {"NAME" : taskName, "STATUS": "Unknown", "Checklist" : []}
 
     def createTask(self):
         r"""
@@ -90,19 +94,51 @@ class Tasks:
         print("\n" + json.dumps(self.config, indent = 4) + "\n")
         return self
 
+    def addChecklist(self, listItem):
+	r"""
+	Add a checklist item in a task.
+	"""
+	print("Adding checklist")
+	if "Checklist" not in self.config.keys():
+	    self.config["Checklist"] = []
+	self.config["Checklist"].append({"Index" : len(self.config["Checklist"]), "Description" : listItem})
+	open(self.configFile, "w").write(json.dumps(self.config, indent = 4))
+        Tasks.refreshTasksData()
+	return self
+
+    def tickChecklist(self, itemNum):
+	r"""
+	Mark a checklist item in a task as complete
+	"""
+	try:
+	    index = int(itemNum)
+	except ValueError as e:
+	    raise TasksException(str(itemNum) + " is not a valid integer. This argument needs to be an integer (the index of the checklist item)")
+	if "Checklist" not in self.config.keys():
+	    self.config["Checklist"] = []
+	if index > (len(self.config["Checklist"]) - 1):
+	    raise TasksException("Checklist item not present. Please enter a valid number.")
+	del self.config["Checklist"][index]
+	for i in range(0, len(self.config["Checklist"])):
+	    self.config["Checklist"][i]["Index"] = i
+	open(self.configFile, "w").write(json.dumps(self.config, indent = 4))
+        Tasks.refreshTasksData()
+	return self
+
     def archiveTask(self):
         r"""
         Archives the current Tasks folder and stores it in $HIME/.TasksArchives
         """
         if self.config["STATUS"].lower() == "complete":
             pwd = os.getcwd()
-            os.chdir(self.taskRoot)
+            os.chdir(self.taskRoot + "/../")
+	    MiscUtils.debug(">> PWD changed to: " +  self.taskRoot)
             with tarfile.open(self.archiveFile, mode="w:gz") as archive:
-                archive.add(self.taskRoot, recursive=True)
+                archive.add(self.taskName, recursive=True)
             os.chdir(pwd)
             if not os.path.isdir(Tasks.archiveRoot):
                 os.makedirs(Tasks.archiveRoot)
-            shutil.move(os.path.join(self.taskRoot, self.archiveFile), Tasks.archiveRoot)
+            shutil.move(os.path.join(self.taskRoot + "/../", self.archiveFile), Tasks.archiveRoot + "/" + self.archiveFile)
             shutil.rmtree(self.taskRoot)
             Tasks.refreshTasksData()
         return self
@@ -170,6 +206,28 @@ class Tasks:
             else:
                 t.updateTask(arg)
             return
+	if option == "addChecklist":
+	    if arg == None:
+                raise TasksException("Did not provide the list item string")
+            t = Tasks.getCurrentTask()
+            if t == None:
+                print("\nNot in any task currently")
+            else:
+                t.addChecklist(arg)
+		os.system("clear")
+		t.showTask()
+            return
+	if option == "tickChecklist":
+	    if arg == None:
+                raise TasksException("Did not provide the list item number")
+            t = Tasks.getCurrentTask()
+            if t == None:
+                print("\nNot in any task currently")
+            else:
+                t.tickChecklist(arg)
+		os.system("clear")
+		t.showTask()
+            return
         if option == "list":
             return Tasks.listTasks()
         if option == "listArchived":
@@ -188,6 +246,8 @@ class Tasks:
 	parser.add_argument("-n", "--newTask", help = "Name of the new task")
 	parser.add_argument("-e", "--enterTask", help = "Name of the task to enter")
 	parser.add_argument("-u", "--updateTask", help = "String to represent the updated status of current task")
+	parser.add_argument("-a", "--addChecklist", help = "Add a checklist item in the current task")
+	parser.add_argument("-t", "--tickChecklist", help = "Tick a checklist item. Provide the integer index of the item in the list.")
 	parser.add_argument("-c", "--clean", help = "Clean all tasks with status of 'Complete' (case ignored)", action = "store_true")
 	parser.add_argument("-d", "--listArchived", help = "List all archived tasks", action = "store_true")
 	parser.add_argument("-l", "--list", help = "List all active tasks", action = "store_true")
@@ -226,7 +286,14 @@ class Tasks:
 	    if args.updateTask:
 		Tasks.controller("update", args.updateTask)
 		return True
+	    if args.addChecklist:
+		Tasks.controller("addChecklist", args.addChecklist)
+		return True
+	    if args.tickChecklist:
+		Tasks.controller("tickChecklist", args.tickChecklist)
+		return True
 	except TasksException as e:
-	    print(str(e))
+	    print("ERROR: " + str(e) + "\n\n")
+	    parser.print_help()
 
      

@@ -8,4 +8,12 @@ class MiscUtils:
     @staticmethod
     def debug(message):
 	if "DEBUG_MODE" in os.environ.keys() and os.environ["DEBUG_MODE"] == "true":
-	    print(message)
+	    print("[DEBUG] " + message)
+
+    @staticmethod
+    def info(message):
+	print("[INFO] " + message)
+
+    @staticmethod
+    def error(message):
+	print("[ERROR] " + message)
