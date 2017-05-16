@@ -25,7 +25,7 @@ utilsComplete() {
     subcomm=${COMP_WORDS[1]}
     case "$subcomm" in
         "Tasks") tasksAutoComplete "$cur" "$prev" ;;
-        *) COMPREPLY=( $( compgen -W "Time Tasks Services" "$cur" ) ) ;;
+        *) COMPREPLY=( $( compgen -W "Time Tasks Services CredsManager" "$cur" ) ) ;;
     esac
     return 0
 }

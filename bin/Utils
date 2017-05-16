@@ -8,6 +8,7 @@ The utility commands are:
     [1] Time
     [2] Tasks
     [3] Todo
+    [4] CredsManager
 """
 
 
@@ -22,6 +23,7 @@ sys.dont_write_bytecode = True
 from libs.utils.Time import Time, TimeException
 from libs.utils.Tasks import Tasks, TasksException
 from libs.utils.ToDo import Todo, TodoException
+from libs.account.CredsManager import CredsManager, CredsManagerException
 
 def main():
     args = sys.argv
@@ -38,7 +40,8 @@ def main():
 	return Tasks.getOpts(args)
     elif command == "Todo":
 	return Todo.getOpts(args)
-	
+    elif command == "CredsManager":
+	return CredsManager.getOpts(args)
     else:
 	print("ERROR: Wrong command: " + command)
 	print(__doc__)

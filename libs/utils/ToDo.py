@@ -12,9 +12,11 @@ import ctypes
 import datetime
 import argparse
 from botocore.exceptions import ClientError
+from boto3.exceptions import S3UploadFailedError
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../../")
 from libs.utils.MiscUtils import MiscUtils
+from libs.account.CredsManager import CredsManager
 
 class TodoException (Exception):
     def __init__(self, message = "Unknown exception"):
@@ -63,7 +65,9 @@ class Todo:
 	self.todos = Todo.checkAndLoadTodoFile(os.path.join(Todo.root, self.conf["Key"]))
 
     def sync(self):
-	bucket = boto3.resource("s3").Bucket(self.conf["Bucket"])
+	#bucket = boto3.resource("s3").Bucket(self.conf["Bucket"])
+	credsManager = CredsManager()
+	bucket = credsManager.getResource("s3").Bucket(self.conf["Bucket"])
 	tempsavename = os.path.join(Todo.root, ".temp.json")
 	try:
 	    bucket.download_file(self.conf["Key"], tempsavename)
@@ -81,11 +85,15 @@ class Todo:
 	return self
 
     def upload(self):
-	bucket = boto3.resource("s3").Bucket(self.conf["Bucket"])
+	#bucket = boto3.resource("s3").Bucket(self.conf["Bucket"])
+	credsManager = CredsManager()
+	bucket = credsManager.getResource("s3").Bucket(self.conf["Bucket"])
 	try:
 	    bucket.upload_file(os.path.join(Todo.root, self.conf["Key"]), self.conf["Key"])
 	except ClientError as e:
 	    raise TodoException(e.response["Error"]["Code"] + " : " + e.response["Error"]["Message"])
+	except S3UploadFailedError as e:
+	    raise TodoException(str(e))
 	MiscUtils.info("Uploaded " + self.conf["Key"] + " to S3")
 	return self
 	
