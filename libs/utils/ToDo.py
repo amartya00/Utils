@@ -28,7 +28,7 @@ class TodoException (Exception):
 class Todo:
     root = os.path.join(os.environ["HOME"], ".Todo")
     configFile = os.path.join(root, ".config")
-    
+
     @staticmethod
     def checkAndCreateConfig(content):	
 	if not os.path.exists(Todo.root):
@@ -50,7 +50,13 @@ class Todo:
 	    open(fileName, "w").write(json.dumps({"Todos" : {}}))
 	    return {"Todos" : {}}
 	else:
-	    return json.loads(open(fileName).read())
+	    todos = json.loads(open(fileName).read())
+	    #Backfill status
+	    for k in todos["Todos"].keys():
+		if "Status" not in todos["Todos"][k]:
+		    todos["Todos"][k]["Status"] = "CREATED"
+	    return todos
+		    
 	    
     def __init__(self):
 	self.conf = {
@@ -78,9 +84,11 @@ class Todo:
 		raise TodoException(e.response["Error"]["Code"] + " : " + e.response["Error"]["Message"])
 	MiscUtils.info("Downloaded from S3. Merging")
 	remotetodos = json.loads(open(tempsavename).read())
-	for id in remotetodos["Todos"].keys():
-	    if not id in self.todos.keys():
-		self.todos["Todos"][id] = remotetodos["Todos"][id]
+	for i in remotetodos["Todos"].keys():
+	    if not i in self.todos.keys():
+		if "Status" not in remotetodos["Todos"][i].keys():
+		    remotetodos["Todos"][i]["Status"] = "CREATED"
+		self.todos["Todos"][i] = remotetodos["Todos"][i]
 	MiscUtils.info("Merged and saved all to-dos")
 	return self
 
@@ -101,11 +109,22 @@ class Todo:
 	try:
 	    self.todos["Todos"][str(ctypes.c_size_t(hash(text)).value)] = {
 		"Description" : text,
-		"DueDate" : datetime.datetime.strptime(duedate, "%Y-%m-%d-%H-%M").strftime("%Y-%m-%d-%H")
+		"DueDate" : datetime.datetime.strptime(duedate, "%Y-%m-%d-%H-%M").strftime("%Y-%m-%d-%H"),
+		"Status" : "Created"
 	    }
 	except ValueError as e:
 	    raise TodoException("Please enter values in correct format: " + str(e))
 	return self
+
+    def updateItem(self, todoId, dueDate = None, status = None):
+	if not todoId in self.todos["Todos"].keys():
+	    raise TodoException("Invalid id: " + todoId)
+	else:
+	    if not dueDate == None:
+		self.todos["Todos"][todoId]["DueDate"] = dueDate
+	    if not status == None:
+		self.todos["Todos"][todoId]["Status"] = status
+	    return self
 	    
     def deleteItem(self, todoId):
 	if not todoId in self.todos["Todos"].keys():
@@ -130,14 +149,17 @@ class Todo:
 	    ids = []
 	    texts = []
 	    dates = []
+	    status = []
 	    for k in self.todos["Todos"].keys():
 		ids.append(k)
 		texts.append(self.todos["Todos"][k]["Description"])
 		dates.append(self.todos["Todos"][k]["DueDate"])
+		status.append(self.todos["Todos"][k]["Status"])
 	    return tabulate({
 		"ID": ids,
 		"Description": texts,
-		"Due by" : dates
+		"Due by" : dates,
+		"Status" : status
 	    }, headers="keys", tablefmt="pipe")
 	except Exception as e:
 	    print("[WARN] type 'sudo pip install tabulate' for prettier output...\n")
@@ -147,9 +169,10 @@ class Todo:
     def getOpts(cmdLineArgs):
 	parser = argparse.ArgumentParser(prog = "Todo", description = __doc__, usage = "Todo [options]", formatter_class = argparse.RawTextHelpFormatter)
 	parser.add_argument("-n", "--newTodo", help = "Text for the new todo. This has to be followed by a -d option.")
-	parser.add_argument("-d", "--dueDate", help = "Due date for the new item.")
+	parser.add_argument("-d", "--dueDate", help = "Due date for the item.")
+	parser.add_argument("-t", "--status", help = "Status for the item.")
 	parser.add_argument("-i", "--todoId", help = "Id of a to-do item.")
-	parser.add_argument("-u", "--updateDueDate", help = "Update due date for a to do item. This has to be followed by the -i option and the -d option.", action = "store_true")
+	parser.add_argument("-u", "--update", help = "Update due date or status for a to do item. This has to be followed by the -i option and the -d / -t option.", action = "store_true")
 	parser.add_argument("-x", "--delete", help = "Delete a to do item. This has to be followed by the -i option.", action = "store_true")
 	parser.add_argument("-s", "--sync", help = "Downloads the save from S3 and merges it.", action = "store_true")
 	parser.add_argument("-l", "--upload", help = "Uploads the local copy back to S3.", action = "store_true")
@@ -162,6 +185,8 @@ class Todo:
 	    dueDate = args.dueDate
 	if args.todoId:
 	    todoId = str(args.todoId)
+	if args.status:
+	    status = args.status
 	# Add
 	if args.newTodo:
 	    text = args.newTodo
@@ -177,21 +202,20 @@ class Todo:
 		    return False
 		return True
 	# Update
-	if args.updateDueDate:
-	    if todoId == None or dueDate == None:
+	if args.update:
+	    if todoId == None:
 		MiscUtils.error("Both todo-id and due date required")
 		return False
 	    else:
 		try:
 		    t = Todo()
-		    i = t.getItem(todoId)
-		    text = i["Description"]
-		    t.addItem(text, dueDate).writeBack()
+		    t.updateItem(todoId, dueDate, status).writeBack()
 		except TodoException as e:
 		    MiscUtils.error(str(e))
 		    return False
 		return True
-	#Delete
+	
+	# Delete
 	if args.delete:
 	    if todoId == None:
 		MiscUtils.error("Need the item id")
@@ -204,7 +228,7 @@ class Todo:
 		    MiscUtils.error(str(e))
 		    return False
 		return True	
-	#Sync
+	# Sync
 	if args.sync:
 	    try:
 		t = Todo()
@@ -213,7 +237,7 @@ class Todo:
 		MiscUtils.error(str(e))
 		return False
 	    return True
-	#Upload
+	# Upload
 	if args.upload:
 	    try:
 		t = Todo()
