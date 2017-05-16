@@ -70,8 +70,7 @@ class Todo:
 	    raise TodoException("Could not create / read config file: " + Todo.configFile + " because: " + str(e))
 	self.todos = Todo.checkAndLoadTodoFile(os.path.join(Todo.root, self.conf["Key"]))
 
-    def sync(self):
-	#bucket = boto3.resource("s3").Bucket(self.conf["Bucket"])
+    def downloadAndMerge(self):
 	credsManager = CredsManager()
 	bucket = credsManager.getResource("s3").Bucket(self.conf["Bucket"])
 	tempsavename = os.path.join(Todo.root, ".temp.json")
@@ -85,15 +84,16 @@ class Todo:
 	MiscUtils.info("Downloaded from S3. Merging")
 	remotetodos = json.loads(open(tempsavename).read())
 	for i in remotetodos["Todos"].keys():
-	    if not i in self.todos.keys():
+	    if not i in self.todos["Todos"].keys():
 		if "Status" not in remotetodos["Todos"][i].keys():
 		    remotetodos["Todos"][i]["Status"] = "CREATED"
 		self.todos["Todos"][i] = remotetodos["Todos"][i]
+	    else:
+		 MiscUtils.debug("Skipping merging todo: " + remotetodos["Todos"][i]["Description"])
 	MiscUtils.info("Merged and saved all to-dos")
 	return self
 
     def upload(self):
-	#bucket = boto3.resource("s3").Bucket(self.conf["Bucket"])
 	credsManager = CredsManager()
 	bucket = credsManager.getResource("s3").Bucket(self.conf["Bucket"])
 	try:
@@ -104,13 +104,27 @@ class Todo:
 	    raise TodoException(str(e))
 	MiscUtils.info("Uploaded " + self.conf["Key"] + " to S3")
 	return self
+
+    def sync(self):
+	return self.downloadAndMerge().writeBack().upload()
+
+    def clean(self):
+	self.downloadAndMerge()
+	itemsToDelete = []
+	for t in self.todos["Todos"].keys():
+	    if ("Status" in  self.todos["Todos"][t].keys()) and  (self.todos["Todos"][t]["Status"].lower() in ["complete", "done", "finished"]):
+		itemsToDelete.append(t)
+	for i in itemsToDelete:
+	    MiscUtils.debug("Deleting: " + self.todos["Todos"][i]["Description"])
+	    self.deleteItem(i)
+	return self.writeBack().upload()
 	
     def addItem(self, text, duedate):
 	try:
 	    self.todos["Todos"][str(ctypes.c_size_t(hash(text)).value)] = {
 		"Description" : text,
 		"DueDate" : datetime.datetime.strptime(duedate, "%Y-%m-%d-%H-%M").strftime("%Y-%m-%d-%H"),
-		"Status" : "Created"
+		"Status" : "CREATED"
 	    }
 	except ValueError as e:
 	    raise TodoException("Please enter values in correct format: " + str(e))
@@ -175,12 +189,13 @@ class Todo:
 	parser.add_argument("-u", "--update", help = "Update due date or status for a to do item. This has to be followed by the -i option and the -d / -t option.", action = "store_true")
 	parser.add_argument("-x", "--delete", help = "Delete a to do item. This has to be followed by the -i option.", action = "store_true")
 	parser.add_argument("-s", "--sync", help = "Downloads the save from S3 and merges it.", action = "store_true")
-	parser.add_argument("-l", "--upload", help = "Uploads the local copy back to S3.", action = "store_true")
+	parser.add_argument("-c", "--clean", help = "Cleans the completed items in list.", action = "store_true")
 	args = parser.parse_args(cmdLineArgs)
 
 	dueDate = None
 	todoId = None
-
+	status = None
+	
 	if args.dueDate:
 	    dueDate = args.dueDate
 	if args.todoId:
@@ -237,15 +252,17 @@ class Todo:
 		MiscUtils.error(str(e))
 		return False
 	    return True
-	# Upload
-	if args.upload:
+
+	# Clean
+        if args.clean:
 	    try:
 		t = Todo()
-		t.upload()
+		t.clean()
 	    except TodoException as e:
 		MiscUtils.error(str(e))
 		return False
 	    return True
+	
 	#Display
         try:
 	    t = Todo()
