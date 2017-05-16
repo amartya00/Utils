@@ -2,16 +2,16 @@ version: 0.0
 os: linux
 files:
   - source: bin/
-    destination: /opt/MyApps/Utils/bin/
+    destination: /opt/MyApps/UtilsApp/bin/
 
   - source: libs/   
-    destination: /opt/MyApps/Utils/libs/
-
-  - source: templates/
-    destination: /opt/MyApps/Utils/templates/
+    destination: /opt/MyApps/UtilsApp/libs/
 
   - source: README.md
-    destination: /opt/MyApps/Utils/
+    destination: /opt/MyApps/UtilsApp/
+
+  - source: autocompletes/
+    destination: /opt/MyApps/UtilsApp/autocompletes
 
 hooks:
   AfterInstall:

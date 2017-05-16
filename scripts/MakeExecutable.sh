@@ -1,3 +1,3 @@
 #!/bin/bash
 
-chmod a+x /opt/MyApps/Utils/bin/*
+chmod a+x /opt/MyApps/UtilsApp/bin/*
