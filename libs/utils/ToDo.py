@@ -164,20 +164,24 @@ class Todo:
 	    texts = []
 	    dates = []
 	    status = []
+	    
 	    for k in self.todos["Todos"].keys():
 		ids.append(k)
 		texts.append(self.todos["Todos"][k]["Description"])
 		dates.append(self.todos["Todos"][k]["DueDate"])
-		status.append(self.todos["Todos"][k]["Status"])
-	    return tabulate({
+		if self.todos["Todos"][k]["Status"].lower() in ["complete", "done", "finished"]:
+		    status.append(self.todos["Todos"][k]["Status"] + " * ")
+		else:
+		    status.append(self.todos["Todos"][k]["Status"])
+	    return "\n\n" + tabulate({
 		"ID": ids,
 		"Description": texts,
 		"Due by" : dates,
 		"Status" : status
-	    }, headers="keys", tablefmt="pipe")
+	    }, headers="keys", tablefmt="pipe") + "\n\n"
 	except Exception as e:
 	    print("[WARN] type 'sudo pip install tabulate' for prettier output...\n")
-	    return json.dumps(self.todos["Todos"], indent = 4)
+	    return "\n\n" + json.dumps(self.todos["Todos"], indent = 4) + "\n\n"
 
     @staticmethod
     def getOpts(cmdLineArgs):
