@@ -167,12 +167,13 @@ class Todo:
 	    
 	    for k in self.todos["Todos"].keys():
 		ids.append(k)
-		texts.append(self.todos["Todos"][k]["Description"])
 		dates.append(self.todos["Todos"][k]["DueDate"])
 		if self.todos["Todos"][k]["Status"].lower() in ["complete", "done", "finished"]:
-		    status.append(self.todos["Todos"][k]["Status"] + " * ")
+		    status.append("[*] " + self.todos["Todos"][k]["Status"])
+		    texts.append("[*] " + self.todos["Todos"][k]["Description"])
 		else:
-		    status.append(self.todos["Todos"][k]["Status"])
+		    status.append("[ ] " + self.todos["Todos"][k]["Status"])
+		    texts.append("[ ] " + self.todos["Todos"][k]["Description"])
 	    return "\n\n" + tabulate({
 		"ID": ids,
 		"Description": texts,
