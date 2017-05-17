@@ -17,6 +17,7 @@ from boto3.exceptions import S3UploadFailedError
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../../")
 from libs.utils.MiscUtils import MiscUtils
 from libs.account.CredsManager import CredsManager
+from libs.utils.TimeUtils import TimeUtils, TimeUtilsException
 
 class TodoException (Exception):
     def __init__(self, message = "Unknown exception"):
@@ -123,7 +124,7 @@ class Todo:
 	try:
 	    self.todos["Todos"][str(ctypes.c_size_t(hash(text)).value)] = {
 		"Description" : text,
-		"DueDate" : datetime.datetime.strptime(duedate, "%Y-%m-%d-%H-%M").strftime("%Y-%m-%d-%H"),
+		"DueDate" : datetime.datetime.strptime(duedate, TimeUtils.validformats[0]).strftime(TimeUtils.validformats[0]),
 		"Status" : "CREATED"
 	    }
 	except ValueError as e:
@@ -202,7 +203,11 @@ class Todo:
 	status = None
 	
 	if args.dueDate:
-	    dueDate = args.dueDate
+	    try:
+		t = TimeUtils(args.dueDate, None)
+		dueDate = t.getDateStr(TimeUtils.validformats[0])
+	    except TimeUtilsException  as e:
+		MiscUtils.error(str(e))
 	if args.todoId:
 	    todoId = str(args.todoId)
 	if args.status:

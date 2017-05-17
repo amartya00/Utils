@@ -5,7 +5,7 @@ This utility consolidates some utility stuff
 Usage:
 Utils command [options]
 The utility commands are:
-    [1] Time
+    [1] TimeUtils
     [2] Tasks
     [3] Todo
     [4] CredsManager
@@ -20,7 +20,7 @@ import json
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
 sys.dont_write_bytecode = True
 
-from libs.utils.Time import Time, TimeException
+from libs.utils.TimeUtils import TimeUtils, TimeUtilsException
 from libs.utils.Tasks import Tasks, TasksException
 from libs.utils.ToDo import Todo, TodoException
 from libs.account.CredsManager import CredsManager, CredsManagerException
@@ -34,8 +34,8 @@ def main():
     command = args[1]
     args = args[2:]
 
-    if command == "Time":
-	return Time.getOpts(args)
+    if command == "TimeUtils":
+	return TimeUtils.getOpts(args)
     elif command == "Tasks":
 	return Tasks.getOpts(args)
     elif command == "Todo":
