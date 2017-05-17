@@ -255,7 +255,6 @@ class Tasks:
 	parser.add_argument("-f", "--firstRun", help = "First run. Initializes folders, etc", action = "store_true")
 	parser.add_argument("-r", "--restore", help = "Restore an archived task")
 	args = parser.parse_args(cmdLineArgs)
-	
 	try:
 	    if args.firstRun:
 		Tasks.firstRun()

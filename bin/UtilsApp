@@ -9,6 +9,7 @@ The utility commands are:
     [2] Tasks
     [3] Todo
     [4] CredsManager
+    [5] Work
 """
 
 
@@ -42,6 +43,12 @@ def main():
 	return Todo.getOpts(args)
     elif command == "CredsManager":
 	return CredsManager.getOpts(args)
+    elif command == "Work":
+	os.system("clear")
+	print("Overall view of things I am doing:\n------------------------------------\n\n")
+	ret1 = Tasks.getOpts(["-l"])
+	ret2 = Todo.getOpts([])
+	return (ret1 and ret2)
     else:
 	print("ERROR: Wrong command: " + command)
 	print(__doc__)

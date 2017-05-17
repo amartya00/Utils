@@ -175,7 +175,7 @@ class Todo:
 		else:
 		    status.append("[ ] " + self.todos["Todos"][k]["Status"])
 		    texts.append("[ ] " + self.todos["Todos"][k]["Description"])
-	    return "\n\n" + tabulate({
+	    return "\n\nTodo items:\n--------------------------\n" + tabulate({
 		"ID": ids,
 		"Description": texts,
 		"Due by" : dates,
@@ -183,7 +183,7 @@ class Todo:
 	    }, headers="keys", tablefmt="pipe") + "\n\n"
 	except Exception as e:
 	    print("[WARN] type 'sudo pip install tabulate' for prettier output...\n")
-	    return "\n\n" + json.dumps(self.todos["Todos"], indent = 4) + "\n\n"
+	    return "\n\nTodo items:\n--------------------------\n" + json.dumps(self.todos["Todos"], indent = 4) + "\n\n"
 
     @staticmethod
     def getOpts(cmdLineArgs):
