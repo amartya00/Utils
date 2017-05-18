@@ -15,6 +15,45 @@ tasksAutoComplete() {
     return 0
 }
 
+todoAutoComplete() {
+    local cur
+    local prev
+    cur=$1
+    prev=$2
+    if [ "$prev" == "-d" ]; then
+        COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "$cur" ) )
+    elif [ "$cur" == "-d" ]; then
+        COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "" ) )
+    elif [ "$prev" == "-d" ]; then
+        COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "$cur" ) )
+    elif [ "$cur" == "-d" ]; then
+        COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "" ) )
+    else
+        COMPREPLY=( $( compgen -W "-h -n -d -t -i -u -x -s -c --help --newTodo --dueDate --status --todoId --update --delete --sync --clean" "'$cur'" ) )
+    fi
+    return 0
+}
+
+timeUtilsComplete() {
+    local cur
+    local prev
+    cur=$1
+    prev=$2
+    if [ "$prev" == "-f" ]; then
+        COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "$cur" ) )
+    elif [ "$cur" == "-f" ]; then
+        COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "" ) )
+    elif [ "$prev" == "--fmt" ]; then
+        COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "$cur" ) )
+    elif [ "$cur" == "-fmt" ]; then
+        COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "" ) )
+    else
+        COMPREPLY=( $( compgen -W "-h -t -f --help --inputTime --fmt" "'$cur'" ) )
+    fi
+    return 0
+}
+
+
 utilsComplete() {
     local cur
     local prev
@@ -25,9 +64,11 @@ utilsComplete() {
     subcomm=${COMP_WORDS[1]}
     case "$subcomm" in
         "Tasks") tasksAutoComplete "$cur" "$prev" ;;
-        *) COMPREPLY=( $( compgen -W "Time Tasks Services CredsManager" "$cur" ) ) ;;
+        "Todo") todoAutoComplete "$cur" "$prev" ;;
+        "TimeUtils") timeUtilsComplete "$cur" "$prev" ;;
+        *) COMPREPLY=( $( compgen -W "TimeUtils Tasks Todo CredsManager" "$cur" ) ) ;;
     esac
     return 0
 }
 
-complete -F utilsComplete -o filenames Utils
+complete -F utilsComplete -o filenames UtilsApp
