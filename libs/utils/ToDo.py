@@ -29,7 +29,7 @@ class TodoException (Exception):
 class Todo:
     root = os.path.join(os.environ["HOME"], ".Todo")
     configFile = os.path.join(root, ".config")
-
+    validStatus = ["IN_PROGRESS", "CREATED", "COMPLETE", "BLOCKED"]
     @staticmethod
     def checkAndCreateConfig(content):	
 	if not os.path.exists(Todo.root):
@@ -138,7 +138,9 @@ class Todo:
 	    if not dueDate == None:
 		self.todos["Todos"][todoId]["DueDate"] = dueDate
 	    if not status == None:
-		self.todos["Todos"][todoId]["Status"] = status
+		if status.upper() not in Todo.validStatus:
+		    raise TodoException("Invalid todo status: '" + status + "'. valid statuses are: " + str(Todo.validStatus))
+		self.todos["Todos"][todoId]["Status"] = status.upper()
 	    return self
 	    
     def deleteItem(self, todoId):
