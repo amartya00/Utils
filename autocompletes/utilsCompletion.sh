@@ -66,7 +66,7 @@ utilsComplete() {
         "Tasks") tasksAutoComplete "$cur" "$prev" ;;
         "Todo") todoAutoComplete "$cur" "$prev" ;;
         "TimeUtils") timeUtilsComplete "$cur" "$prev" ;;
-        *) COMPREPLY=( $( compgen -W "TimeUtils Tasks Todo CredsManager" "$cur" ) ) ;;
+        *) COMPREPLY=( $( compgen -W "TimeUtils Tasks Todo CredsManager Work" "$cur" ) ) ;;
     esac
     return 0
 }

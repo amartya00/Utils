@@ -29,7 +29,7 @@ class TodoException (Exception):
 class Todo:
     root = os.path.join(os.environ["HOME"], ".Todo")
     configFile = os.path.join(root, ".config")
-    validStatus = ["IN_PROGRESS", "CREATED", "COMPLETE", "BLOCKED"]
+    validStatus = ["IN_PROGRESS", "CREATED", "COMPLETE", "BLOCKED", "CANCELED"]
     @staticmethod
     def checkAndCreateConfig(content):	
 	if not os.path.exists(Todo.root):
@@ -174,6 +174,9 @@ class Todo:
 		if self.todos["Todos"][k]["Status"].lower() in ["complete", "done", "finished"]:
 		    status.append("[*] " + self.todos["Todos"][k]["Status"])
 		    texts.append("[*] " + self.todos["Todos"][k]["Description"])
+		elif self.todos["Todos"][k]["Status"].lower() in ["canceled"]:
+		    status.append("[x] " + self.todos["Todos"][k]["Status"])
+		    texts.append("[x] " + self.todos["Todos"][k]["Description"])
 		else:
 		    status.append("[ ] " + self.todos["Todos"][k]["Status"])
 		    texts.append("[ ] " + self.todos["Todos"][k]["Description"])
