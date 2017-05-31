@@ -119,7 +119,7 @@ class Todo:
 	self.downloadAndMerge()
 	itemsToDelete = []
 	for t in self.todos["Todos"].keys():
-	    if ("Status" in  self.todos["Todos"][t].keys()) and  (self.todos["Todos"][t]["Status"].lower() in ["complete", "done", "finished"]):
+	    if ("Status" in  self.todos["Todos"][t].keys()) and  (self.todos["Todos"][t]["Status"].lower() in ["complete", "done", "finished", "canceled"]):
 		itemsToDelete.append(t)
 	for i in itemsToDelete:
 	    MiscUtils.debug("Deleting: " + self.todos["Todos"][i]["Description"])
