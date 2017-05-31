@@ -17,3 +17,7 @@ class MiscUtils:
     @staticmethod
     def error(message):
 	print("[ERROR] " + message)
+
+    @staticmethod
+    def warn(message):
+	print("[WARNING] " + message)

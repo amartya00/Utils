@@ -11,6 +11,7 @@ import boto3
 import ctypes
 import datetime
 import argparse
+from operator import itemgetter
 from botocore.exceptions import ClientError
 from boto3.exceptions import S3UploadFailedError
 
@@ -52,10 +53,12 @@ class Todo:
 	    return {"Todos" : {}}
 	else:
 	    todos = json.loads(open(fileName).read())
-	    #Backfill status
+	    #Backfill status and CreateDate
 	    for k in todos["Todos"].keys():
 		if "Status" not in todos["Todos"][k]:
 		    todos["Todos"][k]["Status"] = "CREATED"
+		if "CreateDate" not in todos["Todos"][k]:
+		    todos["Todos"][k]["CreateDate"] = datetime.datetime.now().strftime(TimeUtils.validformats[0])
 	    return todos
 		    
 	    
@@ -86,8 +89,11 @@ class Todo:
 	remotetodos = json.loads(open(tempsavename).read())
 	for i in remotetodos["Todos"].keys():
 	    if not i in self.todos["Todos"].keys():
+		# Backfill status and createDate
 		if "Status" not in remotetodos["Todos"][i].keys():
 		    remotetodos["Todos"][i]["Status"] = "CREATED"
+		if "CreateDate" not in todos["Todos"][k]:
+		    todos["Todos"][k]["CreateDate"] = datetime.datetime.now().strftime(TimeUtils.validformats[0])
 		self.todos["Todos"][i] = remotetodos["Todos"][i]
 	    else:
 		 MiscUtils.debug("Skipping merging todo: " + remotetodos["Todos"][i]["Description"])
@@ -125,7 +131,8 @@ class Todo:
 	    self.todos["Todos"][str(ctypes.c_size_t(hash(text)).value)] = {
 		"Description" : text,
 		"DueDate" : datetime.datetime.strptime(duedate, TimeUtils.validformats[0]).strftime(TimeUtils.validformats[0]),
-		"Status" : "CREATED"
+		"Status" : "CREATED",
+		"CreateDate" : datetime.datetime.now().strftime(TimeUtils.validformats[0])
 	    }
 	except ValueError as e:
 	    raise TodoException("Please enter values in correct format: " + str(e))
@@ -160,33 +167,39 @@ class Todo:
 	open(os.path.join(Todo.root, self.conf["Key"]), "w").write(json.dumps(self.todos, indent = 4))
 	return self
 
-    def display(self):
+    def display(self, sortKey = "DueDate"):
 	try:
 	    from tabulate import tabulate
-	    ids = []
-	    texts = []
-	    dates = []
-	    status = []
-	    
-	    for k in self.todos["Todos"].keys():
-		ids.append(k)
-		dates.append(self.todos["Todos"][k]["DueDate"])
-		if self.todos["Todos"][k]["Status"].lower() in ["complete", "done", "finished"]:
-		    status.append("[*] " + self.todos["Todos"][k]["Status"])
-		    texts.append("[*] " + self.todos["Todos"][k]["Description"])
-		elif self.todos["Todos"][k]["Status"].lower() in ["canceled"]:
-		    status.append("[x] " + self.todos["Todos"][k]["Status"])
-		    texts.append("[x] " + self.todos["Todos"][k]["Description"])
+	    allTodos = []
+	    headersList = ["Description", "CreateDate", "DueDate", "Status", "Id"]
+	    if sortKey not in headersList:
+		MiscUtils.warn("Cannot sort by '" + sortKey + "' (no such field). Just sorting by 'DueDate'.")
+		sortKey = "DueDate"
+	    for t in self.todos["Todos"].keys():
+		temp = []
+		if self.todos["Todos"][t]["Status"].lower() in ["complete", "done", "finished"]:
+		    temp.append("[*] " + self.todos["Todos"][t]["Description"])
+		    temp.append("[*] " + self.todos["Todos"][t]["CreateDate"])
+		    temp.append("[*] " + self.todos["Todos"][t]["DueDate"])
+		    temp.append("[*] " + self.todos["Todos"][t]["Status"])
+		    temp.append("[*] " + t)
+		elif self.todos["Todos"][t]["Status"].lower() in ["canceled"]:
+		    temp.append("[x] " + self.todos["Todos"][t]["Description"])
+		    temp.append("[x] " + self.todos["Todos"][t]["CreateDate"])
+		    temp.append("[x] " + self.todos["Todos"][t]["DueDate"])
+		    temp.append("[x] " + self.todos["Todos"][t]["Status"])
+		    temp.append("[x] " + t)
 		else:
-		    status.append("[ ] " + self.todos["Todos"][k]["Status"])
-		    texts.append("[ ] " + self.todos["Todos"][k]["Description"])
-	    return "\n\nTodo items:\n--------------------------\n" + tabulate({
-		"ID": ids,
-		"Description": texts,
-		"Due by" : dates,
-		"Status" : status
-	    }, headers="keys", tablefmt="pipe") + "\n\n"
+		    temp.append("[ ] " + self.todos["Todos"][t]["Description"])
+		    temp.append("[ ] " + self.todos["Todos"][t]["CreateDate"])
+		    temp.append("[ ] " + self.todos["Todos"][t]["DueDate"])
+		    temp.append("[ ] " + self.todos["Todos"][t]["Status"])
+		    temp.append("[ ] " + t)
+		allTodos.append(temp)
+	    allTodos.sort(key = lambda e: e[headersList.index(sortKey)], reverse = False)
+	    return "\n\nTodo items:\n--------------------------\n" + tabulate(allTodos, headers = headersList, tablefmt = "pipe") + "\n\n"
 	except Exception as e:
+	    print(str(e))
 	    print("[WARN] type 'sudo pip install tabulate' for prettier output...\n")
 	    return "\n\nTodo items:\n--------------------------\n" + json.dumps(self.todos["Todos"], indent = 4) + "\n\n"
 
@@ -197,15 +210,18 @@ class Todo:
 	parser.add_argument("-d", "--dueDate", help = "Due date for the item.")
 	parser.add_argument("-t", "--status", help = "Status for the item.")
 	parser.add_argument("-i", "--todoId", help = "Id of a to-do item.")
+	parser.add_argument("-k", "--sortKey", help = "Sortkey to use when viewing the list.")
 	parser.add_argument("-u", "--update", help = "Update due date or status for a to do item. This has to be followed by the -i option and the -d / -t option.", action = "store_true")
 	parser.add_argument("-x", "--delete", help = "Delete a to do item. This has to be followed by the -i option.", action = "store_true")
 	parser.add_argument("-s", "--sync", help = "Downloads the save from S3 and merges it.", action = "store_true")
 	parser.add_argument("-c", "--clean", help = "Cleans the completed items in list.", action = "store_true")
+	
 	args = parser.parse_args(cmdLineArgs)
 
 	dueDate = None
 	todoId = None
 	status = None
+	sortKey = "DueDate"
 	
 	if args.dueDate:
 	    try:
@@ -217,6 +233,8 @@ class Todo:
 	    todoId = str(args.todoId)
 	if args.status:
 	    status = args.status
+	if args.sortKey:
+	    sortKey = args.sortKey
 	# Add
 	if args.newTodo:
 	    text = args.newTodo
@@ -281,7 +299,7 @@ class Todo:
 	#Display
         try:
 	    t = Todo()
-	    print(t.display())
+	    print(t.display(sortKey))
 	except TodoException as e:
 	    MiscUtils.error(str(e))
 	    return False
