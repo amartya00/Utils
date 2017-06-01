@@ -21,12 +21,12 @@ class TimeUtilsException (Exception):
 	return self.message
 
 class TimeUtils:
-    validformats = ["%Y-%m-%d-%H-%M", "%Y-%m-%d", "%H:%M"]
+    validformats = ["%Y-%m-%d-%H-%M", "%Y-%m-%d-%H", "%Y-%m-%d", "%H:%M"]
     validRelativeTimes = ["now", "today", "tomorrow"]
     
     @staticmethod
-    def getDate(datestr):
-	if usentp:
+    def getDate(datestr, slow = True):
+	if usentp and slow:
 	    now = datetime.datetime.fromtimestamp(ntplib.NTPClient().request('europe.pool.ntp.org', version=3).tx_time)
 	else:
 	    now = datetime.datetime.now()

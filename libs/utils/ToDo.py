@@ -1,7 +1,7 @@
 r"""
 This is a small to-do utility. Enter your to-do as a 1 line entry.
 You can enter a due date and also refresh the due date. The todos
-are synced vis s3. The sync is manual.
+are synced via s3. The sync is manual.
 """
 
 import json
@@ -19,18 +19,13 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../../")
 from libs.utils.MiscUtils import MiscUtils
 from libs.account.CredsManager import CredsManager
 from libs.utils.TimeUtils import TimeUtils, TimeUtilsException
-
-class TodoException (Exception):
-    def __init__(self, message = "Unknown exception"):
-	self.message = message
-
-    def __str__(self):
-	return self.message
+from libs.utils.ToDoItem import TodoItem, TodoException
+from libs.utils.ToDoList import TodoList
 
 class Todo:
     root = os.path.join(os.environ["HOME"], ".Todo")
     configFile = os.path.join(root, ".config")
-    validStatus = ["IN_PROGRESS", "CREATED", "COMPLETE", "BLOCKED", "CANCELED"]
+
     @staticmethod
     def checkAndCreateConfig(content):	
 	if not os.path.exists(Todo.root):
@@ -52,16 +47,10 @@ class Todo:
 	    open(fileName, "w").write(json.dumps({"Todos" : {}}))
 	    return {"Todos" : {}}
 	else:
-	    todos = json.loads(open(fileName).read())
-	    #Backfill status and CreateDate
-	    for k in todos["Todos"].keys():
-		if "Status" not in todos["Todos"][k]:
-		    todos["Todos"][k]["Status"] = "CREATED"
-		if "CreateDate" not in todos["Todos"][k]:
-		    todos["Todos"][k]["CreateDate"] = datetime.datetime.now().strftime(TimeUtils.validformats[0])
+	    todos = {"Todos" : TodoList()}
+	    todos["Todos"].mergeFromMap(json.loads(open(fileName).read())["Todos"]).backfill()
 	    return todos
 		    
-	    
     def __init__(self):
 	self.conf = {
 	    "User" : os.environ["USER"],
@@ -86,17 +75,7 @@ class Todo:
 	    else:
 		raise TodoException(e.response["Error"]["Code"] + " : " + e.response["Error"]["Message"])
 	MiscUtils.info("Downloaded from S3. Merging")
-	remotetodos = json.loads(open(tempsavename).read())
-	for i in remotetodos["Todos"].keys():
-	    if not i in self.todos["Todos"].keys():
-		# Backfill status and createDate
-		if "Status" not in remotetodos["Todos"][i].keys():
-		    remotetodos["Todos"][i]["Status"] = "CREATED"
-		if "CreateDate" not in todos["Todos"][k]:
-		    todos["Todos"][k]["CreateDate"] = datetime.datetime.now().strftime(TimeUtils.validformats[0])
-		self.todos["Todos"][i] = remotetodos["Todos"][i]
-	    else:
-		 MiscUtils.debug("Skipping merging todo: " + remotetodos["Todos"][i]["Description"])
+	self.todos["Todos"].merge(Todo.checkAndLoadTodoFile(tempsavename)["Todos"])
 	MiscUtils.info("Merged and saved all to-dos")
 	return self
 
@@ -117,44 +96,19 @@ class Todo:
 
     def clean(self):
 	self.downloadAndMerge()
-	itemsToDelete = []
-	for t in self.todos["Todos"].keys():
-	    if ("Status" in  self.todos["Todos"][t].keys()) and  (self.todos["Todos"][t]["Status"].lower() in ["complete", "done", "finished", "canceled"]):
-		itemsToDelete.append(t)
-	for i in itemsToDelete:
-	    MiscUtils.debug("Deleting: " + self.todos["Todos"][i]["Description"])
-	    self.deleteItem(i)
+	self.todos["Todos"].clean()
 	return self.writeBack().upload()
 	
     def addItem(self, text, duedate):
-	try:
-	    self.todos["Todos"][str(ctypes.c_size_t(hash(text)).value)] = {
-		"Description" : text,
-		"DueDate" : datetime.datetime.strptime(duedate, TimeUtils.validformats[0]).strftime(TimeUtils.validformats[0]),
-		"Status" : "CREATED",
-		"CreateDate" : datetime.datetime.now().strftime(TimeUtils.validformats[0])
-	    }
-	except ValueError as e:
-	    raise TodoException("Please enter values in correct format: " + str(e))
+	self.todos["Todos"].addItem(text, duedate)
 	return self
 
     def updateItem(self, todoId, dueDate = None, status = None):
-	if not todoId in self.todos["Todos"].keys():
-	    raise TodoException("Invalid id: " + todoId)
-	else:
-	    if not dueDate == None:
-		self.todos["Todos"][todoId]["DueDate"] = dueDate
-	    if not status == None:
-		if status.upper() not in Todo.validStatus:
-		    raise TodoException("Invalid todo status: '" + status + "'. valid statuses are: " + str(Todo.validStatus))
-		self.todos["Todos"][todoId]["Status"] = status.upper()
-	    return self
+	self.todos["Todos"].updateItem(todoId, dueDate, status)
+	return self
 	    
     def deleteItem(self, todoId):
-	if not todoId in self.todos["Todos"].keys():
-	    raise TodoException("Invalid id: " + todoId)
-	else:
-	    del(self.todos["Todos"][todoId])
+	self.todos["Todos"].deleteItem(todoId)
 	return self
     
     def getItem(self, todoId):
@@ -164,44 +118,32 @@ class Todo:
 	    return self.todos["Todos"][todoId]
 	
     def writeBack(self):
-	open(os.path.join(Todo.root, self.conf["Key"]), "w").write(json.dumps(self.todos, indent = 4))
+	open(os.path.join(Todo.root, self.conf["Key"]), "w").write(json.dumps({"Todos" : self.todos["Todos"].toMap()}, indent = 4))
 	return self
 
     def display(self, sortKey = "DueDate"):
 	try:
 	    from tabulate import tabulate
-	    allTodos = []
-	    headersList = ["Description", "CreateDate", "DueDate", "Status", "Id"]
-	    if sortKey not in headersList:
-		MiscUtils.warn("Cannot sort by '" + sortKey + "' (no such field). Just sorting by 'DueDate'.")
-		sortKey = "DueDate"
-	    for t in self.todos["Todos"].keys():
-		temp = []
-		if self.todos["Todos"][t]["Status"].lower() in ["complete", "done", "finished"]:
-		    temp.append("[*] " + self.todos["Todos"][t]["Description"])
-		    temp.append("[*] " + self.todos["Todos"][t]["CreateDate"])
-		    temp.append("[*] " + self.todos["Todos"][t]["DueDate"])
-		    temp.append("[*] " + self.todos["Todos"][t]["Status"])
-		    temp.append("[*] " + t)
-		elif self.todos["Todos"][t]["Status"].lower() in ["canceled"]:
-		    temp.append("[x] " + self.todos["Todos"][t]["Description"])
-		    temp.append("[x] " + self.todos["Todos"][t]["CreateDate"])
-		    temp.append("[x] " + self.todos["Todos"][t]["DueDate"])
-		    temp.append("[x] " + self.todos["Todos"][t]["Status"])
-		    temp.append("[x] " + t)
+	    table = self.todos["Todos"].toLists(sortKey)
+	    headers = table[0]
+	    values = table[1:]
+	    index = headers.index("Status")
+	    for i in range(0, len(values)):
+		if values[i][index].lower() in ["complete", "done", "finished"]:
+		    for j in range(0, len(values[i])):
+			values[i][j] = "[*] " + values[i][j]
+		elif values[i][index].lower() in ["canceled"]:
+		    for j in range(0, len(values[i])):
+			values[i][j] = "[x] " + values[i][j]
 		else:
-		    temp.append("[ ] " + self.todos["Todos"][t]["Description"])
-		    temp.append("[ ] " + self.todos["Todos"][t]["CreateDate"])
-		    temp.append("[ ] " + self.todos["Todos"][t]["DueDate"])
-		    temp.append("[ ] " + self.todos["Todos"][t]["Status"])
-		    temp.append("[ ] " + t)
-		allTodos.append(temp)
-	    allTodos.sort(key = lambda e: e[headersList.index(sortKey)], reverse = False)
-	    return "\n\nTodo items:\n--------------------------\n" + tabulate(allTodos, headers = headersList, tablefmt = "pipe") + "\n\n"
-	except Exception as e:
-	    print(str(e))
-	    print("[WARN] type 'sudo pip install tabulate' for prettier output...\n")
+		    for j in range(0, len(values[i])):
+			values[i][j] = "[ ] " + values[i][j]
+	    return "\n\nTodo items:\n--------------------------\n" + tabulate(table[1:], headers = table[0], tablefmt = "pipe") + "\n\n"
+	except ImportError as e1:
+	    MiscUtils.warn("Type 'sudo pip install tabulate' for prettier output...\n")
 	    return "\n\nTodo items:\n--------------------------\n" + json.dumps(self.todos["Todos"], indent = 4) + "\n\n"
+	except Exception as e2:
+	    raise TodoException(str(e2))
 
     @staticmethod
     def getOpts(cmdLineArgs):
