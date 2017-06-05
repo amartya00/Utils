@@ -29,7 +29,7 @@ todoAutoComplete() {
     elif [ "$cur" == "-d" ]; then
         COMPREPLY=( $( compgen -W '"%Y-%m-%d-%H-%M" "%Y-%m-%d" "%H:%M" now tomorrow today' "" ) )
     else
-        COMPREPLY=( $( compgen -W "-h -n -d -t -i -u -x -s -c --help --newTodo --dueDate --status --todoId --update --delete --sync --clean" "'$cur'" ) )
+        COMPREPLY=( $( compgen -W "-h -n -d -t -i -u -x -s -c -k --help --newTodo --dueDate --status --todoId --update --delete --sync --clean --sortKey" "'$cur'" ) )
     fi
     return 0
 }
