@@ -76,7 +76,6 @@ class CredsManager:
 	    profile.data["Region"] = region
 	if not mode == "":
 	    profile.data["Mode"] = mode
-	print(str(profile.data))
 	self.conf["Creds"].addCreds(profile)
 	
 	return self

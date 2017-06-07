@@ -18,6 +18,7 @@ from boto3.exceptions import S3UploadFailedError
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../../")
 from libs.utils.MiscUtils import MiscUtils
 from libs.account.CredsManager import CredsManager
+from libs.account.Creds import CredsException
 from libs.utils.TimeUtils import TimeUtils, TimeUtilsException
 from libs.utils.ToDoItem import TodoItem, TodoException
 from libs.utils.ToDoList import TodoList
@@ -63,9 +64,12 @@ class Todo:
 	    raise TodoException("Could not create / read config file: " + Todo.configFile + " because: " + str(e))
 	self.todos = Todo.checkAndLoadTodoFile(os.path.join(Todo.root, self.conf["Key"]))
 
-    def downloadAndMerge(self):
-	credsManager = CredsManager()
-	bucket = credsManager.getResource("s3").Bucket(self.conf["Bucket"])
+    def downloadAndMerge(self, profileName = "DEFAULT"):
+	try:
+	    credsManager = CredsManager()
+	    bucket = credsManager.getResource("s3", profileName).Bucket(self.conf["Bucket"])
+	except CredsException as e:
+	    raise TodoException(str(e))
 	tempsavename = os.path.join(Todo.root, ".temp.json")
 	try:
 	    bucket.download_file(self.conf["Key"], tempsavename)
@@ -79,9 +83,12 @@ class Todo:
 	MiscUtils.info("Merged and saved all to-dos")
 	return self
 
-    def upload(self):
-	credsManager = CredsManager()
-	bucket = credsManager.getResource("s3").Bucket(self.conf["Bucket"])
+    def upload(self, profileName = "DEFAULT"):
+	try:
+	    credsManager = CredsManager()
+	    bucket = credsManager.getResource("s3", profileName).Bucket(self.conf["Bucket"])
+	except CredsException as e:
+	    raise TodoException(str(e))
 	try:
 	    bucket.upload_file(os.path.join(Todo.root, self.conf["Key"]), self.conf["Key"])
 	except ClientError as e:
@@ -91,13 +98,13 @@ class Todo:
 	MiscUtils.info("Uploaded " + self.conf["Key"] + " to S3")
 	return self
 
-    def sync(self):
-	return self.downloadAndMerge().writeBack().upload()
+    def sync(self, profileName = "DEFAULT"):
+	return self.downloadAndMerge(profileName).writeBack().upload(profileName)
 
-    def clean(self):
-	self.downloadAndMerge()
+    def clean(self, profileName = "DEFAULT"):
+	self.downloadAndMerge(profileName)
 	self.todos["Todos"].clean()
-	return self.writeBack().upload()
+	return self.writeBack().upload(profileName)
 	
     def addItem(self, text, duedate):
 	self.todos["Todos"].addItem(text, duedate)
@@ -157,6 +164,7 @@ class Todo:
 	parser.add_argument("-x", "--delete", help = "Delete a to do item. This has to be followed by the -i option.", action = "store_true")
 	parser.add_argument("-s", "--sync", help = "Downloads the save from S3 and merges it.", action = "store_true")
 	parser.add_argument("-c", "--clean", help = "Cleans the completed items in list.", action = "store_true")
+	parser.add_argument("-p", "--profileName", help = "Profile name to use (If not specified, 'DEFAULT' is used")
 	
 	args = parser.parse_args(cmdLineArgs)
 
@@ -164,6 +172,7 @@ class Todo:
 	todoId = None
 	status = None
 	sortKey = "DueDate"
+	profileName = "DEFAULT"
 	
 	if args.dueDate:
 	    try:
@@ -177,6 +186,9 @@ class Todo:
 	    status = args.status
 	if args.sortKey:
 	    sortKey = args.sortKey
+	if args.profileName:
+	    profileName = args.profileName
+	    
 	# Add
 	if args.newTodo:
 	    text = args.newTodo
@@ -222,7 +234,7 @@ class Todo:
 	if args.sync:
 	    try:
 		t = Todo()
-		t.sync().writeBack()
+		t.sync(profileName).writeBack()
 	    except TodoException as e:
 		MiscUtils.error(str(e))
 		return False
@@ -232,7 +244,7 @@ class Todo:
         if args.clean:
 	    try:
 		t = Todo()
-		t.clean()
+		t.clean(profileName)
 	    except TodoException as e:
 		MiscUtils.error(str(e))
 		return False
