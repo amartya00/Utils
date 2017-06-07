@@ -13,70 +13,47 @@ import argparse
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../../")
 from libs.utils.MiscUtils import MiscUtils
-
-class CredsManagerException (Exception):
-    def __init__(self, message = "Unknown exception"):
-	self.message = message
-	
-    def __str__(self):
-	return self.message
+from libs.account.Creds import Creds, CredsException
+from libs.account.CredsCollection import CredsCollection
 
 class CredsManager:
-    DEFAULT = "DEFAULT"
-    CUSTOM = "CUSTOM"
     root = os.path.join(os.environ["HOME"], ".CredsManager")
-
+    filename = os.path.join(root, ".credentials")
+    
     @staticmethod
     def checkAndLoadCreds(credsFile, creds):
 	if not os.path.exists(CredsManager.root):
 	    MiscUtils.info("Creds manager is not configured. Creating folder: " + CredsManager.root)
 	    os.makedirs(CredsManager.root)
+	if not os.path.exists(credsFile):
 	    MiscUtils.info("Creating creds file: " + credsFile)
-	    open(credsFile, "w").write(json.dumps(creds, indent = 4))
+	    open(credsFile, "w").write(json.dumps(creds.toJson(), indent = 4))
 	    return creds
 	else:
-	    return json.loads(open(credsFile, "r").read())
-
-    @staticmethod
-    def getSession(credsFile, mode):
-	session = boto3.session.Session()
-	if mode == CredsManager.DEFAULT:
-	    creds = botocore.session.get_session().get_credentials()
-	    setattr(session, "aws_access_key", creds.access_key)
-	    setattr(session, "aws_secret_key", creds.secret_key)
-	    if hasattr(creds, "aws_session_token"):
-		setattr(session, "aws_session_token", creds.session_token)
-	    return session
-	else:
-	    creds = json.loads(open(credsFile, "r").read())
-	    setattr(session, "aws_access_key", creds["AccessKey"])
-	    setattr(session, "aws_secret_key", creds["SecretKey"])
-	    if "SessionToken" in creds.keys() and not creds["SessionToken"] == None:
-		setattr(session, "aws_session_token", creds["SessionToken"])
-	    MiscUtils.debug("Returning session with access key: " + session.aws_access_key)
-	    MiscUtils.debug("Returning session with secret key: " + session.aws_secret_key)
-	    return session
+	    retval = CredsCollection()
+	    return retval.mergeFromJson(json.loads(open(credsFile, "r").read()))
 	
     def __init__(self):
 	self.conf = {
-	    "Creds": {
-		"Mode" : CredsManager.DEFAULT,
-		"AccessKey" : None,
-		"SecretKey" : None,
-		"SessionToken" : None,
-		"Region" : "us-east-1"
-	    },
-	    "CredsFile" : os.path.join(CredsManager.root, ".credentials")
+	    "CredsFile" : os.path.join(CredsManager.root, ".credentials"),
+	    "Creds" : CredsCollection()
 	}
 	self.conf["Creds"] = CredsManager.checkAndLoadCreds(self.conf["CredsFile"], self.conf["Creds"])
-	self.conf["Session"] = CredsManager.getSession(self.conf["CredsFile"], self.conf["Creds"]["Mode"]) 
-	
 
     def configure(self):
-	promptAccessKey = " [] " if self.conf["Creds"]["AccessKey"] == None else (" [" + self.conf["Creds"]["AccessKey"][0:3] + "***] ")
-	promptSecretKey = " [] " if self.conf["Creds"]["SecretKey"] == None else (" [" + self.conf["Creds"]["SecretKey"][0:3] + "***] ")
-	promptSessionToken = " [] " if self.conf["Creds"]["SessionToken"] == None else (" [" + self.conf["Creds"]["SessionToken"][0:3] + "***] ")
-	promptRegion = " [] " if self.conf["Creds"]["Region"] == None else (" [" + self.conf["Creds"]["Region"] + "] ")
+	promptProfileName = " [DEFAULT] "
+	print("Enter profileName: " + promptProfileName)
+	profileName = sys.stdin.readline().strip()
+	if profileName == "":
+	    profileName = "DEFAULT"
+	profile = self.conf["Creds"].data[profileName] if profileName in self.conf["Creds"].data.keys() else Creds(profileName, "CUSTOM")
+	profile.data["Name"] = profileName
+
+	promptAccessKey    = " [] " if profile.data["AccessKey"]    == None else (" [" + profile.data["AccessKey"][0:3] + "***] ")
+	promptSecretKey    = " [] " if profile.data["SecretKey"]    == None else (" [" + profile.data["SecretKey"][0:3] + "***] ")
+	promptSessionToken = " [] " if profile.data["SessionToken"] == None else (" [" + profile.data["SessionToken"][0:3] + "***] ")
+	promptRegion       = " [] " if profile.data["Region"]       == None else (" [" + profile.data["Region"] + "] ")
+	promptMode         = " [] " if profile.data["Mode"]         == None else (" [" + profile.data["Mode"] + "] ")
 	
 	print("Enter AWS access key " +  promptAccessKey + " : ")
 	accessKey = sys.stdin.readline().strip()
@@ -86,46 +63,40 @@ class CredsManager:
 	sessionToken = sys.stdin.readline().strip()
 	print("Enter AWS region " + promptRegion + " : ")
 	region = sys.stdin.readline().strip()
+	print("Enter mode " + promptMode + " : ")
+	mode = sys.stdin.readline().strip()
 	
 	if not accessKey == "":
-	    self.conf["Creds"]["AccessKey"] = accessKey
+	    profile.data["AccessKey"] = accessKey
 	if not secretKey == "":
-	    self.conf["Creds"]["SecretKey"] = secretKey
+	    profile.data["SecretKey"] = secretKey
 	if not sessionToken == "":
-	    self.conf["Creds"]["SessionToken"] = sessionToken
+	    profile.data["SessionToken"] = sessionToken
 	if not region == "":
-	    self.conf["Creds"]["Region"] = region
-	return self
-
-    def setMode(self, mode):
-	if mode == CredsManager.DEFAULT:
-	    self.conf["Creds"]["Mode"] = CredsManager.DEFAULT
-	else:
-	    self.conf["Creds"]["Mode"] = CredsManager.CUSTOM
+	    profile.data["Region"] = region
+	if not mode == "":
+	    profile.data["Mode"] = mode
+	print(str(profile.data))
+	self.conf["Creds"].addCreds(profile)
+	
 	return self
 
     def writeBack(self):
-	open(self.conf["CredsFile"], "w").write(json.dumps(self.conf["Creds"], indent = 4))
+	open(self.conf["CredsFile"], "w").write(json.dumps(self.conf["Creds"].toJson(), indent = 4))
 	return self
     
-    def getResource(self, resourceType):
-	session = self.conf["Session"]
-	resource = session.resource(resourceType)
-	if hasattr(session, "aws_session_token"):
-	    return session.resource(
-		resourceType,
-		aws_access_key_id = session.aws_access_key,
-		aws_secret_access_key = session.aws_secret_key,
-		aws_session_token = session.aws_session_token)
+    def getResource(self, resourceType, profileName = "DEFAULT"):
+	if profileName not in self.conf["Creds"].data.keys():
+	    raise CredsException("Profile with name '" + profileName + "' not found.")
 	else:
-	    return session.resource(
-		resourceType,
-		aws_access_key_id = session.aws_access_key,
-		aws_secret_access_key = session.aws_secret_key)
+	    return self.conf["Creds"].data[profileName].getResource(resourceType)
 
     def show(self):
-	return json.dumps(self.conf["Creds"], indent = 4)
+	return json.dumps(self.conf["Creds"].toJson(), indent = 4)
 
+    def delete(self, profileName):
+	self.conf["Creds"].removeCreds(profileName)
+	return self
 
     @staticmethod
     def getOpts(cmdLineArgs):
@@ -133,23 +104,33 @@ class CredsManager:
 	parser.add_argument("-c", "--configure", help = "Input credentials.", action = "store_true")
 	parser.add_argument("-m", "--setMode", help = "Set creds mode (default aws creds vs your own creds).")
 	parser.add_argument("-s", "--show", help = "Show the custom creds that might be used.", action = "store_true")
+	parser.add_argument("-d", "--delete", help = "Delete a profile.")
 	args = parser.parse_args(cmdLineArgs)
 
-	if args.configure:
-	    c = CredsManager()
-	    c.configure().writeBack()
-	    return True
-
-	if args.setMode:
-	    c = CredsManager()
-	    c.setMode(args.setMode).writeBack()
-	    return True
-
-	if args.show:
-	    c = CredsManager()
-	    print(c.show())
-	    return True
+	try:
+	    if args.delete:
+		c = CredsManager()
+		c.delete(args.delete).writeBack()
+		return True
 	
-	parser.print_help()
-	return False
+	    if args.configure:
+		c = CredsManager()
+		c.configure().writeBack()
+		return True
+
+	    if args.setMode:
+		c = CredsManager()
+		c.setMode(args.setMode).writeBack()
+		return True
+
+	    if args.show:
+		c = CredsManager()
+		print(c.show())
+		return True
+	
+	    parser.print_help()
+	except CredsException as e:
+	    MiscUtils.error(str(e))
+	    return False
+	return True
 

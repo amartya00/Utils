@@ -24,7 +24,8 @@ sys.dont_write_bytecode = True
 from libs.utils.TimeUtils import TimeUtils, TimeUtilsException
 from libs.utils.Tasks import Tasks, TasksException
 from libs.utils.ToDo import Todo, TodoException
-from libs.account.CredsManager import CredsManager, CredsManagerException
+from libs.account.CredsManager import CredsManager
+from libs.account.Creds import CredsException
 
 def main():
     args = sys.argv
