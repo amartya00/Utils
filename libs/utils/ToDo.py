@@ -257,7 +257,7 @@ class Todo:
 	
 	#Display
         try:
-	    t = Todo()
+	    t = Todo(profileName)
 	    print(t.display(sortKey))
 	except TodoException as e:
 	    MiscUtils.error(str(e))
