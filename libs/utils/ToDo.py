@@ -25,49 +25,50 @@ from libs.utils.ToDoList import TodoList
 
 class Todo:
     root = os.path.join(os.environ["HOME"], ".Todo")
-    configFile = os.path.join(root, ".config")
 
     @staticmethod
-    def checkAndCreateConfig(content):	
+    def checkAndCreateConfig(content, profileName):
+	configFile = os.path.join(Todo.root, "." + profileName + "_config")
 	if not os.path.exists(Todo.root):
 	    MiscUtils.info("Creating .Todo folder and .config file as they do not exist")
 	    os.makedirs(Todo.root)
-	    open(Todo.configFile, "w").write(json.dumps(content, indent = 4))
+	    open(configFile, "w").write(json.dumps(content, indent = 4))
 	    return content
-	elif not os.path.isfile(Todo.configFile):
+	elif not os.path.isfile(configFile):
 	    MiscUtils.info("Creating .config file as it does not exist")
-	    open(Todo.configFile, "w").write(json.dumps(content, indent = 4))
+	    open(configFile, "w").write(json.dumps(content, indent = 4))
 	    return content
 	else:
 	    MiscUtils.debug("Found root folder and config file")
-	    return json.loads(open(Todo.configFile).read())
+	    return json.loads(open(configFile).read())
 
     @staticmethod
     def checkAndLoadTodoFile(fileName):
 	if not os.path.isfile(fileName):
 	    open(fileName, "w").write(json.dumps({"Todos" : {}}))
-	    return {"Todos" : {}}
+	    return {"Todos" : TodoList()}
 	else:
 	    todos = {"Todos" : TodoList()}
 	    todos["Todos"].mergeFromMap(json.loads(open(fileName).read())["Todos"]).backfill()
 	    return todos
 		    
-    def __init__(self):
+    def __init__(self, profileName = "DEFAULT"):
 	self.conf = {
+	    "Profile" : profileName,
 	    "User" : os.environ["USER"],
 	    "Bucket" : "Todo-" + os.environ["USER"],
-	    "Key" : "Todo.json"
+	    "Key" : profileName + "_Todo.json"
 	}
 	try:
-	    self.conf = Todo.checkAndCreateConfig(self.conf)
+	    self.conf = Todo.checkAndCreateConfig(self.conf, profileName)
 	except EnvironmentError as e:
 	    raise TodoException("Could not create / read config file: " + Todo.configFile + " because: " + str(e))
 	self.todos = Todo.checkAndLoadTodoFile(os.path.join(Todo.root, self.conf["Key"]))
 
-    def downloadAndMerge(self, profileName = "DEFAULT"):
+    def downloadAndMerge(self):
 	try:
 	    credsManager = CredsManager()
-	    bucket = credsManager.getResource("s3", profileName).Bucket(self.conf["Bucket"])
+	    bucket = credsManager.getResource("s3", self.conf["Profile"]).Bucket(self.conf["Bucket"])
 	except CredsException as e:
 	    raise TodoException(str(e))
 	tempsavename = os.path.join(Todo.root, ".temp.json")
@@ -83,10 +84,10 @@ class Todo:
 	MiscUtils.info("Merged and saved all to-dos")
 	return self
 
-    def upload(self, profileName = "DEFAULT"):
+    def upload(self):
 	try:
 	    credsManager = CredsManager()
-	    bucket = credsManager.getResource("s3", profileName).Bucket(self.conf["Bucket"])
+	    bucket = credsManager.getResource("s3", self.conf["Profile"]).Bucket(self.conf["Bucket"])
 	except CredsException as e:
 	    raise TodoException(str(e))
 	try:
@@ -98,13 +99,17 @@ class Todo:
 	MiscUtils.info("Uploaded " + self.conf["Key"] + " to S3")
 	return self
 
-    def sync(self, profileName = "DEFAULT"):
-	return self.downloadAndMerge(profileName).writeBack().upload(profileName)
+    def sync(self):
+	try:
+	    self.downloadAndMerge()
+	except TodoException as e:
+	    MiscUtils.error(str(e))
+	return self.writeBack().upload()
 
-    def clean(self, profileName = "DEFAULT"):
-	self.downloadAndMerge(profileName)
+    def clean(self):
+	self.downloadAndMerge()
 	self.todos["Todos"].clean()
-	return self.writeBack().upload(profileName)
+	return self.writeBack().upload()
 	
     def addItem(self, text, duedate):
 	self.todos["Todos"].addItem(text, duedate)
@@ -197,7 +202,7 @@ class Todo:
 		return False
 	    else:
 		try:
-		    t = Todo()
+		    t = Todo(profileName)
 		    t.addItem(text, dueDate).writeBack()
 		except TodoException as e:
 		    MiscUtils.error(str(e))
@@ -210,7 +215,7 @@ class Todo:
 		return False
 	    else:
 		try:
-		    t = Todo()
+		    t = Todo(profileName)
 		    t.updateItem(todoId, dueDate, status).writeBack()
 		except TodoException as e:
 		    MiscUtils.error(str(e))
@@ -224,7 +229,7 @@ class Todo:
 		return False
 	    else:
 		try:
-		    t = Todo()
+		    t = Todo(profileName)
 		    t.deleteItem(todoId).writeBack()
 		except TodoException as e:
 		    MiscUtils.error(str(e))
@@ -233,8 +238,8 @@ class Todo:
 	# Sync
 	if args.sync:
 	    try:
-		t = Todo()
-		t.sync(profileName).writeBack()
+		t = Todo(profileName)
+		t.sync().writeBack()
 	    except TodoException as e:
 		MiscUtils.error(str(e))
 		return False
@@ -243,8 +248,8 @@ class Todo:
 	# Clean
         if args.clean:
 	    try:
-		t = Todo()
-		t.clean(profileName)
+		t = Todo(profileName)
+		t.clean()
 	    except TodoException as e:
 		MiscUtils.error(str(e))
 		return False
