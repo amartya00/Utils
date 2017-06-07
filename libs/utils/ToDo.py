@@ -150,7 +150,7 @@ class Todo:
 		else:
 		    for j in range(0, len(values[i])):
 			values[i][j] = "[ ] " + values[i][j]
-	    return "\n\nTodo items:\n--------------------------\n" + tabulate(table[1:], headers = table[0], tablefmt = "pipe") + "\n\n"
+	    return "\n\nProfile: " + self.conf["Profile"] +  "\nTodo items:\n--------------------------\n" + tabulate(table[1:], headers = table[0], tablefmt = "pipe") + "\n\n"
 	except ImportError as e1:
 	    MiscUtils.warn("Type 'sudo pip install tabulate' for prettier output...\n")
 	    return "\n\nTodo items:\n--------------------------\n" + json.dumps(self.todos["Todos"], indent = 4) + "\n\n"
