@@ -53,6 +53,9 @@ class Todo:
 	    return todos
 		    
     def __init__(self, profileName = "DEFAULT"):
+	credsManager = CredsManager()
+	if not credsManager.exists(profileName):
+	    raise TodoException("No such profile ('" + profileName + "'). Please create one in CredsManager.")
 	self.conf = {
 	    "Profile" : profileName,
 	    "User" : os.environ["USER"],

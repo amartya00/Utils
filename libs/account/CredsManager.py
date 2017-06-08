@@ -96,7 +96,10 @@ class CredsManager:
     def delete(self, profileName):
 	self.conf["Creds"].removeCreds(profileName)
 	return self
-
+    
+    def exists(self, profileName):
+	return profileName in self.conf["Creds"].data.keys()
+	
     @staticmethod
     def getOpts(cmdLineArgs):
 	parser = argparse.ArgumentParser(prog = "CredsManager", description = __doc__, usage = "CredsManager [options]", formatter_class = argparse.RawTextHelpFormatter)
