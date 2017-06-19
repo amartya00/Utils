@@ -7,8 +7,11 @@ project(UtilsApp)
 
 set(SRC "${CMAKE_CURRENT_SOURCE_DIR}")
 set(DEST "${CMAKE_CURRENT_BINARY_DIR}/UtilsApp")
+set(INSTALL "/opt/MyApp/UtilsApp")
 
-add_custom_target(build
+add_custom_target(default ALL
     COMMAND ${CMAKE_COMMAND} -P "${SRC}/CopySrc.cmake" "${SRC}/bin" "${DEST}/bin" "EXEC"
     COMMAND ${CMAKE_COMMAND} -P "${SRC}/CopySrc.cmake" "${SRC}/libs" "${DEST}/libs" "NOEXEC"
     COMMAND ${CMAKE_COMMAND} -P "${SRC}/CopySrc.cmake" "${SRC}/autocompletes" "${DEST}/autocompletes" "NOEXEC")
+
+install(DIRECTORY ${DEST} DESTINATION ${INSTALL} USE_SOURCE_PERMISSIONS)
