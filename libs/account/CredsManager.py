@@ -25,7 +25,9 @@ class CredsManager:
             MiscUtils.info("Creds manager is not configured. Creating folder: " + CredsManager.root)
             os.makedirs(CredsManager.root)
         if not os.path.exists(credsFile):
-            MiscUtils.info("Creating creds file: " + credsFile)
+            defaultCreds = Creds("DEFAULT", Creds.allowedModes[0])
+            creds.addCreds(defaultCreds)
+            MiscUtils.info("Creating creds file: " + credsFile + ". I created a default profile called DEFAULT, with no aws creds. It will resort to your system aws creds if present.")
             open(credsFile, "w").write(json.dumps(creds.toJson(), indent=4))
             return creds
         else:
