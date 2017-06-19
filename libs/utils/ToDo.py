@@ -33,7 +33,7 @@ class Todo:
             open(configFile, "w").write(json.dumps(content, indent=4))
             return content
         elif not os.path.isfile(configFile):
-            MiscUtils.info("Creating .config file as it does not exist")
+            MiscUtils.info("Creating .config at " + configFile + " as it does not exist. Please modify it if the settings don't suite your needs.")
             open(configFile, "w").write(json.dumps(content, indent=4))
             return content
         else:
@@ -157,7 +157,7 @@ class Todo:
                 table[1:], headers=table[0], tablefmt="pipe") + "\n\n"
         except ImportError as e1:
             MiscUtils.warn("Type 'sudo pip install tabulate' for prettier output...\n")
-            return "\n\nTodo items:\n--------------------------\n" + json.dumps(self.todos["Todos"], indent=4) + "\n\n"
+            return "\n\nTodo items:\n--------------------------\n" + json.dumps(self.todos["Todos"].toMap(), indent=4) + "\n\n"
         except Exception as e2:
             raise TodoException(str(e2))
 

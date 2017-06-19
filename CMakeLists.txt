@@ -7,7 +7,7 @@ project(UtilsApp)
 
 set(SRC "${CMAKE_CURRENT_SOURCE_DIR}")
 set(DEST "${CMAKE_CURRENT_BINARY_DIR}/UtilsApp")
-set(INSTALL "/opt/MyApp/UtilsApp")
+set(INSTALL "/opt/MyApps/")
 
 add_custom_target(default ALL
     COMMAND ${CMAKE_COMMAND} -P "${SRC}/CopySrc.cmake" "${SRC}/bin" "${DEST}/bin" "EXEC"
